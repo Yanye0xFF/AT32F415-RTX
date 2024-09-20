@@ -27,15 +27,16 @@
  
 #include "cmsis_compiler.h"
 #include "rtx_os.h"
+#include "cmsis_gcc.h"
  
 // OS Idle Thread
 __WEAK __NO_RETURN void osRtxIdleThread (void *argument) {
   (void)argument;
 
   for (;;) {
-    __DSB();
-    __WFI();
-    __ISB();
+      __DSB();
+      __WFI();
+      __ISB();
   }
 }
  

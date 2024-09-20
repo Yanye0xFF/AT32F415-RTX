@@ -29,8 +29,10 @@
  * 2024-03-10     Meco Man     move std libc related functions to rtklibc
  */
 
-#include <rtthread.h>
-#include <rthw.h>
+#include "rtthread.h"
+#include "rthw.h"
+#include "cmsis_os2.h"
+#include "rtx_os.h"
 
 #define DBG_TAG           "kernel.service"
 #ifdef RT_DEBUG_DEVICE
@@ -124,12 +126,64 @@ rt_weak int rt_kprintf(const char *fmt, ...)
 
 #if defined(RT_USING_HEAP)
 
-// extern unsigned int __bss_start;
-extern unsigned int __bss_end;
-// size in kb
-#define CHIP_SRAM_SIZE      32
-#define RT_HW_HEAP_BEGIN    (void *)&__bss_end
-#define RT_HW_HEAP_END     (0x20000000 + CHIP_SRAM_SIZE * 1024)
+static rt_smem_t system_heap;
+
+rt_inline void _smem_info(rt_size_t *total,
+    rt_size_t *used, rt_size_t *max_used)
+{
+    if (total)
+        *total = system_heap->total;
+    if (used)
+        *used = system_heap->used;
+    if (max_used)
+        *max_used = system_heap->max;
+}
+
+#define _MEM_INIT(_name, _start, _size) \
+    system_heap = rt_smem_init(_name, _start, _size)
+
+#define _MEM_MALLOC(_size)  \
+    rt_smem_alloc(system_heap, _size)
+
+#define _MEM_REALLOC(_ptr, _newsize)\
+    rt_smem_realloc(system_heap, _ptr, _newsize)
+
+#define _MEM_FREE(_ptr) \
+    rt_smem_free(_ptr)
+
+#define _MEM_INFO(_total, _used, _max)  \
+    _smem_info(_total, _used, _max)
+
+static osMutexId_t _lock;
+rt_align(4) static osRtxMutex_t _lock_entity;
+static const osMutexAttr_t _lock_attr = {
+    .name = "heap",
+    .attr_bits = (osMutexRecursive|osMutexPrioInherit|osMutexRobust),
+    .cb_mem = (void *)&_lock_entity,
+    .cb_size = sizeof(osRtxMutex_t)
+};
+
+rt_inline void _heap_lock_init(void)
+{
+    _lock = osMutexNew(&_lock_attr);
+}
+
+rt_inline rt_base_t _heap_lock(void)
+{
+    if (osThreadGetId()) {
+        return osMutexAcquire(_lock, osWaitForever);
+    }else {
+        return RT_EOK;
+    }
+}
+
+rt_inline void _heap_unlock(rt_base_t level)
+{
+    (void)level;
+    if (osThreadGetId()) {
+        osMutexRelease(_lock);
+    }
+}
 
 /**
  * @brief This function will init system heap.
@@ -138,8 +192,15 @@ extern unsigned int __bss_end;
  *
  * @param end_addr the end address of system page.
  */
-rt_weak void rt_system_heap_init(void)
+void rt_system_heap_init(void *begin_addr, void *end_addr)
 {
+    rt_ubase_t begin_align = RT_ALIGN((rt_ubase_t)begin_addr, RT_ALIGN_SIZE);
+    rt_ubase_t end_align   = RT_ALIGN_DOWN((rt_ubase_t)end_addr, RT_ALIGN_SIZE);
+
+    /* Initialize system memory heap */
+    _MEM_INIT("heap", (void *)begin_align, end_align - begin_align);
+    /* Initialize multi thread contention lock */
+    _heap_lock_init();
 }
 
 /**
@@ -151,8 +212,66 @@ rt_weak void rt_system_heap_init(void)
  */
 rt_weak void *rt_malloc(rt_size_t size)
 {
-    (void)size;
-    return (void *)0;
+    rt_base_t level;
+    void *ptr;
+
+    /* Enter critical zone */
+    level = _heap_lock();
+    /* allocate memory block from system heap */
+    ptr = _MEM_MALLOC(size);
+    /* Exit critical zone */
+    _heap_unlock(level);
+    return ptr;
+}
+
+/**
+ * @brief This function will change the size of previously allocated memory block.
+ *
+ * @param ptr is the pointer to memory allocated by rt_malloc.
+ *
+ * @param newsize is the required new size.
+ *
+ * @return the changed memory block address.
+ */
+rt_weak void *rt_realloc(void *ptr, rt_size_t newsize)
+{
+    rt_base_t level;
+    void *nptr;
+
+    /* Enter critical zone */
+    level = _heap_lock();
+    /* Change the size of previously allocated memory block */
+    nptr = _MEM_REALLOC(ptr, newsize);
+    /* Exit critical zone */
+    _heap_unlock(level);
+    return nptr;
+}
+
+/**
+ * @brief  This function will contiguously allocate enough space for count objects
+ *         that are size bytes of memory each and returns a pointer to the allocated
+ *         memory.
+ *
+ * @note   The allocated memory is filled with bytes of value zero.
+ *
+ * @param  count is the number of objects to allocate.
+ *
+ * @param  size is the size of one object to allocate.
+ *
+ * @return pointer to allocated memory / NULL pointer if there is an error.
+ */
+rt_weak void *rt_calloc(rt_size_t count, rt_size_t size)
+{
+    void *p;
+
+    /* allocate 'count' objects of size 'size' */
+    p = rt_malloc(count * size);
+    /* zero the memory */
+    if (p)
+    {
+        rt_memset(p, 0, count * size);
+    }
+    return p;
 }
 
 /**
@@ -163,7 +282,38 @@ rt_weak void *rt_malloc(rt_size_t size)
  */
 rt_weak void rt_free(void *ptr)
 {
-    (void)ptr;
+    rt_base_t level;
+
+    /* NULL check */
+    if (ptr == RT_NULL) return;
+    /* Enter critical zone */
+    level = _heap_lock();
+    _MEM_FREE(ptr);
+    /* Exit critical zone */
+    _heap_unlock(level);
+}
+
+/**
+* @brief This function will caculate the total memory, the used memory, and
+*        the max used memory.
+*
+* @param total is a pointer to get the total size of the memory.
+*
+* @param used is a pointer to get the size of memory used.
+*
+* @param max_used is a pointer to get the maximum memory used.
+*/
+rt_weak void rt_memory_info(rt_size_t *total,
+                            rt_size_t *used,
+                            rt_size_t *max_used)
+{
+    rt_base_t level;
+
+    /* Enter critical zone */
+    level = _heap_lock();
+    _MEM_INFO(total, used, max_used);
+    /* Exit critical zone */
+    _heap_unlock(level);
 }
 
 /**
@@ -231,6 +381,7 @@ rt_weak void rt_free_align(void *ptr)
     real_ptr = (void *) * (rt_ubase_t *)((rt_ubase_t)ptr - sizeof(void *));
     rt_free(real_ptr);
 }
+
 #endif /* RT_USING_HEAP */
 
 /**@}*/

@@ -24,8 +24,9 @@
  */
 
 #include "rtx_lib.h"
+#include "rtthread.h"
 
-
+/*
 //  Memory Pool Header structure
 typedef struct {
   uint32_t size;                // Memory Pool size
@@ -59,7 +60,7 @@ __STATIC_INLINE mem_block_t *MemBlockPtr (void *mem, uint32_t offset) {
 
   return ptr;
 }
-
+*/
 
 //  ==== Library functions ====
 
@@ -68,6 +69,7 @@ __STATIC_INLINE mem_block_t *MemBlockPtr (void *mem, uint32_t offset) {
 /// \param[in]  size            size of a memory pool in bytes.
 /// \return 1 - success, 0 - failure.
 __WEAK uint32_t osRtxMemoryInit (void *mem, uint32_t size) {
+  /*
   mem_head_t  *head;
   mem_block_t *ptr;
 
@@ -91,6 +93,9 @@ __WEAK uint32_t osRtxMemoryInit (void *mem, uint32_t size) {
   ptr->next->next = NULL;
   ptr->next->info = sizeof(mem_head_t) + sizeof(mem_block_t);
   ptr->info = 0U;
+  */
+  (void)mem;
+  (void)size;
 
   EvrRtxMemoryInit(mem, size, 1U);
 
@@ -103,6 +108,7 @@ __WEAK uint32_t osRtxMemoryInit (void *mem, uint32_t size) {
 /// \param[in]  type            memory block type: 0 - generic, 1 - control block
 /// \return allocated memory block or NULL in case of no memory is available.
 __WEAK void *osRtxMemoryAlloc (void *mem, uint32_t size, uint32_t type) {
+  /*
   mem_block_t *ptr;
   mem_block_t *p, *p_new;
   uint32_t     block_size;
@@ -161,10 +167,13 @@ __WEAK void *osRtxMemoryAlloc (void *mem, uint32_t size, uint32_t type) {
     p->next = p_new;
     ptr = MemBlockPtr(p_new, sizeof(mem_block_t));
   }
+  */
+  (void)mem;
+  (void)type;
 
   EvrRtxMemoryAlloc(mem, size, type, ptr);
 
-  return ptr;
+  return rt_malloc(size);
 }
 
 /// Return an allocated memory block back to a Memory Pool.
@@ -172,6 +181,7 @@ __WEAK void *osRtxMemoryAlloc (void *mem, uint32_t size, uint32_t type) {
 /// \param[in]  block           memory block to be returned to the memory pool.
 /// \return 1 - success, 0 - failure.
 __WEAK uint32_t osRtxMemoryFree (void *mem, void *block) {
+  /*
   const mem_block_t *ptr;
         mem_block_t *p, *p_prev;
 
@@ -211,6 +221,9 @@ __WEAK uint32_t osRtxMemoryFree (void *mem, void *block) {
     // Discard block from chained list
     p_prev->next = p->next;
   }
+  */
+  (void)mem;
+  rt_free(block);
 
   EvrRtxMemoryFree(mem, block, 1U);
 

@@ -282,6 +282,30 @@ typedef int (*init_fn_t)(void);
  */
 #define RT_ALIGN_DOWN(size, align)      ((size) & ~((align) - 1))
 
+#ifdef RT_USING_HEAP
+/*
+ * memory structure
+ */
+struct rt_memory
+{
+    const char *            algorithm;              /**< Memory management algorithm name */
+    rt_ubase_t              address;                /**< memory start address */
+    rt_size_t               total;                  /**< memory size */
+    rt_size_t               used;                   /**< size used */
+    rt_size_t               max;                    /**< maximum usage */
+};
+typedef struct rt_memory *rt_mem_t;
+#endif /* RT_USING_HEAP */
+
+/*
+ * memory management
+ * heap & partition
+ */
+
+#ifdef RT_USING_SMALL_MEM
+typedef rt_mem_t rt_smem_t;
+#endif /* RT_USING_SMALL_MEM */
+
 #ifdef __cplusplus
 }
 #endif

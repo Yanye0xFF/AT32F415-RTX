@@ -32,11 +32,9 @@
 #include <rtdef.h>
 #include <rtservice.h>
 #include <rtklibc.h>
-#ifdef RT_USING_LEGACY
-#include <rtlegacy.h>
-#endif
+
 #ifdef RT_USING_FINSH
-//#include <finsh.h>
+#include <finsh.h>
 #endif /* RT_USING_FINSH */
 
 #ifdef __cplusplus
@@ -47,14 +45,34 @@ extern "C" {
 /*
  * heap memory interface
  */
-void rt_system_heap_init(void);
+void rt_system_heap_init(void *begin_addr, void *end_addr);
 
 void *rt_malloc(rt_size_t size);
 void rt_free(void *ptr);
+void *rt_realloc(void *ptr, rt_size_t newsize);
+void *rt_calloc(rt_size_t count, rt_size_t size);
 void *rt_malloc_align(rt_size_t size, rt_size_t align);
 void rt_free_align(void *ptr);
 
+void rt_memory_info(rt_size_t *total,
+                    rt_size_t *used,
+                    rt_size_t *max_used);
+
 #endif /* RT_USING_HEAP */
+
+
+#ifdef RT_USING_SMALL_MEM
+/**
+ * small memory object interface
+ */
+rt_smem_t rt_smem_init(const char    *name,
+                     void          *begin_addr,
+                     rt_size_t      size);
+rt_err_t rt_smem_detach(rt_smem_t m);
+void *rt_smem_alloc(rt_smem_t m, rt_size_t size);
+void *rt_smem_realloc(rt_smem_t m, void *rmem, rt_size_t newsize);
+void rt_smem_free(void *rmem);
+#endif /* RT_USING_SMALL_MEM */
 
 /**
  * @addtogroup KernelService

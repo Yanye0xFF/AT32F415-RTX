@@ -125,11 +125,21 @@ void rt_components_init(void)
 }
 #endif /* RT_USING_COMPONENTS_INIT */
 
+#if defined(RT_USING_HEAP)
+// at32f415rc_flash.ld
+// extern unsigned int __bss_start;
+extern unsigned int __bss_end;
+// size in kb
+#define CHIP_SRAM_SIZE      32
+#define RT_HW_HEAP_BEGIN    (void *)&__bss_end
+#define RT_HW_HEAP_END      (void *)(0x20000000 + CHIP_SRAM_SIZE * 1024)
+#endif
+
 #ifdef RT_USING_USER_MAIN
 
 /* if there is not enable heap, we should use static thread and stack. */
-rt_align(8) static uint8_t main_thread_stack[RT_MAIN_THREAD_STACK_SIZE];
 static osRtxThread_t main_thread;
+rt_align(8) static uint8_t main_thread_stack[RT_MAIN_THREAD_STACK_SIZE];
 
 void main_thread_entry(void *parameter);
 extern void user_main(osThreadId_t tid);
@@ -148,7 +158,7 @@ void rt_application_init(void) {
         .stack_size = RT_MAIN_THREAD_STACK_SIZE,
         .priority = RT_MAIN_THREAD_PRIORITY, // osPriorityNormal
         .tz_module = 0u,
-        .affinity_mask = 0u
+        .affinity_mask = osThreadProcessor(0)
     };
     // Create application main thread
     osThreadNew(main_thread_entry, NULL, &main_attr);
@@ -166,6 +176,9 @@ void entry(void) {
     rt_components_board_init();
 #endif
 
+#if defined(RT_USING_USER_MAIN) && defined(RT_USING_HEAP)
+    rt_system_heap_init(RT_HW_HEAP_BEGIN, RT_HW_HEAP_END);
+#endif
     /* show RT-Thread version */
     rt_show_version();
 

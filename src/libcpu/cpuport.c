@@ -22,7 +22,8 @@
 #include <rtthread.h>
 #include <rthw.h>
 #include "core_cm4.h"
-#include "rtconfig.h"
+#include "rtx_os.h"
+#include "armv7m_mpu.h"
 
 #if               /* ARMCC */ (  (defined ( __CC_ARM ) && defined ( __TARGET_FPU_VFP ))    \
                   /* Clang */ || (defined ( __clang__ ) && defined ( __VFP_FP__ ) && !defined(__SOFTFP__)) \
@@ -513,6 +514,104 @@ static void fault_diagnosis(void) {
 }
 #endif /* (CMB_CPU_PLATFORM_TYPE != CMB_CPU_ARM_CORTEX_M0) */
 
+long list_thread_isr(void) {
+    const char *item_title = "thread";
+    const int maxlen = RT_NAME_MAX;
+    const uint32_t THREAD_MAX = 32;
+
+    uint32_t thread_count, count;
+    osRtxThread_t *thread;
+    uint8_t thread_state;
+    uint32_t stack_size;
+    uint32_t *ptr;
+    osThreadId_t buffer[THREAD_MAX];
+
+    // Running Thread
+    thread_count = 1U;
+    // Ready List
+    for (thread = osRtxInfo.thread.ready.thread_list;
+         thread != NULL; thread = thread->thread_next) {
+        thread_count++;
+    }
+    // Delay List
+    for (thread = osRtxInfo.thread.delay_list;
+         thread != NULL; thread = thread->delay_next) {
+        thread_count++;
+    }
+    // Wait List
+    for (thread = osRtxInfo.thread.wait_list;
+         thread != NULL; thread = thread->delay_next) {
+        thread_count++;
+    }
+    if(thread_count > THREAD_MAX) {
+        thread_count = THREAD_MAX;
+        rt_kprintf("thread count larger than buffer size !\n");
+    }
+
+    // Running Thread
+    count = 0;
+    buffer[count] = osRtxInfo.thread.run.curr;
+    count = 1;
+    // Ready List
+    for (thread = osRtxInfo.thread.ready.thread_list;
+         (thread != NULL) && (count < thread_count); thread = thread->thread_next) {
+        buffer[count]= thread;
+        count++;
+    }
+    // Delay List
+    for (thread = osRtxInfo.thread.delay_list;
+         (thread != NULL) && (count < thread_count); thread = thread->delay_next) {
+        buffer[count]= thread;
+        count++;
+    }
+    // Wait List
+    for (thread = osRtxInfo.thread.wait_list;
+         (thread != NULL) && (count < thread_count); thread = thread->delay_next) {
+        buffer[count]= thread;
+        count++;
+    }
+
+
+    rt_kprintf("%-*.s pri  status      sp     stack size stack base max used left tick\n", maxlen, item_title);
+    for(uint32_t i = 0; i < maxlen; i++) {
+        rt_kprintf("-");
+    }
+    rt_kprintf(" ---  ------- ---------- ---------- ----------  ------  ----------\n");
+
+    for(uint32_t i = 0; i < count; i++) {
+        thread = (osRtxThread_t *)buffer[i];
+        thread_state = (thread->state & osRtxThreadStateMask);
+        rt_kprintf("%-*.*s %3d ", maxlen, RT_NAME_MAX, thread->name, thread->priority);
+
+        if (thread_state == osRtxThreadInactive)        rt_kprintf(" inactive  ");
+        else if (thread_state == osRtxThreadReady)      rt_kprintf(" ready  ");
+        else if (thread_state == osRtxThreadRunning)    rt_kprintf(" running");
+        else if (thread_state == osRtxThreadBlocked)    rt_kprintf(" suspend");
+        else if (thread_state == osRtxThreadTerminated) rt_kprintf(" close  ");
+
+        // 1 Magic Word + 16 Regs
+        stack_size = (thread->stack_size - (17 << 2));
+        ptr = (uint32_t *)thread->stack_mem;
+
+        for (uint32_t n = (thread->stack_size / 4U) - (16U + 1U); n != 0U; n--) {
+            // skip magic word.
+            ptr++;
+            // check watermark
+            if(osRtxStackFillPattern != *ptr) {
+                break;
+            }
+        }
+
+        rt_kprintf(" 0x%08x 0x%08x 0x%08x    %02d%%     %8d\n",
+                   thread->sp, thread->stack_size,
+                   (uint32_t)thread->stack_mem,
+                   (stack_size- ((uint32_t)ptr - (uint32_t)thread->stack_mem)) * 100 / stack_size,
+                   thread->delay);
+    }
+    rt_kprintf("\n");
+    return 0;
+}
+
 struct exception_info
 {
     rt_uint32_t exc_return;
@@ -531,7 +630,11 @@ void rt_hw_hard_fault_exception(struct exception_info *exception_info)
 
     if (exception_info->exc_return & (1 << 2))
     {
-        rt_kprintf("hard fault on thread\n");
+        osRtxThread_t *tid = osRtxInfo.thread.run.curr;
+
+        rt_kprintf("hard fault on thread: \"%s\"\n", tid->name);
+
+        list_thread_isr();
     }
     else
     {
@@ -581,6 +684,13 @@ void rt_hw_hard_fault_exception(struct exception_info *exception_info)
     rt_kprintf("\nSystem will reboot after 1 second.\n\n");
 
     __disable_irq();
+
+    CoreDebug->DEMCR = 0x1000000U;
+    DWT->CYCCNT = 0x0U;
+    DWT->CTRL = 0x1U;
+    while(DWT->CYCCNT < 144000000);
+
+    rt_hw_cpu_reset();
 #else
     while(1);
 #endif
@@ -592,8 +702,6 @@ void rt_hw_hard_fault_exception(struct exception_info *exception_info)
 void rt_hw_cpu_shutdown(void)
 {
     rt_kprintf("shutdown...\n");
-
-    RT_ASSERT(0);
 }
 
 /**
@@ -609,3 +717,7 @@ void machine_reset(void) {
     ARM_MPU_Disable();
     rt_hw_cpu_reset();
 }
+#ifdef RT_USING_FINSH
+#include "finsh.h"
+    MSH_CMD_EXPORT_ALIAS(machine_reset, reboot, reboot system);
+#endif
