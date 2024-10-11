@@ -20,8 +20,8 @@
 /* Entry Point */
 ENTRY(Reset_Handler)
 
-/* 2048 bytes stack for crt */
-_system_stack_size = 0x800;
+/* 1024 bytes stack for crt */
+_system_stack_size = 0x400;
 
 /* Specify the memory areas */
 MEMORY

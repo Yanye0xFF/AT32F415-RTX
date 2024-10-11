@@ -13,7 +13,15 @@ RM := rm -rf
 -include src/rtthread/subdir.mk
 -include src/libcpu/subdir.mk
 -include src/device/subdir.mk
+-include src/components/spiflash/subdir.mk
 -include src/components/rtt/subdir.mk
+-include src/components/littlefs/subdir.mk
+-include src/components/libc/newlib/subdir.mk
+-include src/components/libc/cplusplus/os/subdir.mk
+-include src/components/libc/cplusplus/subdir.mk
+-include src/components/ipc/subdir.mk
+-include src/components/finsh/subdir.mk
+-include src/bsp/driver/subdir.mk
 -include src/app/subdir.mk
 -include src/RTOS2/Source/subdir.mk
 -include src/RTOS2/RTX/Source/GCC/subdir.mk
@@ -89,7 +97,7 @@ main-build: NewRTX.elf secondary-outputs
 NewRTX.elf: $(OBJS) $(USER_OBJS) makefile objects.mk $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GNU Arm Cross C++ Linker'
-	arm-none-eabi-g++ -mcpu=cortex-m4 -march=armv7e-m -mthumb -mlittle-endian -mfloat-abi=soft -munaligned-access -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -ffreestanding -Wunused -Wuninitialized -Wall -Wextra -Wshadow -Waggregate-return -Wfloat-equal -g -T at32f415rc_flash.ld -nostartfiles -Xlinker --gc-sections -L"../ldscripts" -Wl,-Map,"NewRTX.map" --specs=nano.specs -o "NewRTX.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+	arm-none-eabi-g++ -mcpu=cortex-m4 -march=armv7e-m -mthumb -mlittle-endian -mfloat-abi=soft -munaligned-access -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -ffreestanding -Wunused -Wuninitialized -Wall -Wshadow -Waggregate-return -Wfloat-equal -T at32f415rc_flash.ld -nostartfiles -Xlinker --gc-sections -L"../ldscripts" -Wl,-Map,"NewRTX.map" --specs=nano.specs -o "NewRTX.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

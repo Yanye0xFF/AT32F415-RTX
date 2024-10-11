@@ -1,0 +1,16 @@
+// Bare metal
+INIT_BOARD_EXPORT:
+./src/bsp/driver/drv_crm.c::rt_hw_crm_init()
+./src/bsp/driver/drv_pin.c::rt_hw_gpio_init()
+./src/components/rtt/rtt.c::rtt_init()
+
+// OS env
+INIT_PREV_EXPORT:
+./src/components/libc/cplusplus/cxx_crt_init.c::cplusplus_system_init()
+
+INIT_DEVICE_EXPORT:
+./src/bsp/driver/drv_spi.c::rt_spi_init()
+./src/components/spiflash/sfud.c::sfud_init()
+
+INIT_COMPONENT_EXPORT:
+./src/components/littlefs/lfs_posix.c::lfs_posix_init()

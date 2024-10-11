@@ -112,7 +112,9 @@ uint16_t rt_spi_xfer(struct rt_spi_message *message) {
     DMA1_CHANNEL3->ctrl_bit.chen = 0u;
     SPI1->ctrl1_bit.spien = 0u;
 
-    osSemaphoreAcquire(sem_spi, 0);
+    do{
+        status = osSemaphoreAcquire(sem_spi, 0);
+    }while(status == osOK);
 
     if(message->cs_take) {
         GPIOA->clr = GPIO_PINS_4;

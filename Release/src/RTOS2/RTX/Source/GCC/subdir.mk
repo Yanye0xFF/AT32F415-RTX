@@ -17,7 +17,7 @@ S_UPPER_DEPS += \
 src/RTOS2/RTX/Source/GCC/%.o: ../src/RTOS2/RTX/Source/GCC/%.S src/RTOS2/RTX/Source/GCC/subdir.mk
 	@echo 'Building file: $<'
 	@echo 'Invoking: GNU Arm Cross Assembler'
-	arm-none-eabi-gcc -mcpu=cortex-m4 -march=armv7e-m -mthumb -mlittle-endian -mfloat-abi=soft -munaligned-access -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -ffreestanding -Wunused -Wuninitialized -Wall -Wextra -Wshadow -Waggregate-return -Wfloat-equal -g -x assembler-with-cpp -DAT32F415RCT7 -DUSE_STDPERIPH_DRIVER -I"../src/device" -I"../src/RTOS2/RTX/Include" -I"../src/RTOS2/RTX/Config" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" -c -o "$@" "$<"
+	arm-none-eabi-gcc -mcpu=cortex-m4 -march=armv7e-m -mthumb -mlittle-endian -mfloat-abi=soft -munaligned-access -O2 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -ffreestanding -Wunused -Wuninitialized -Wall -Wshadow -Waggregate-return -Wfloat-equal -x assembler-with-cpp -DAT32F415RCT7 -DUSE_STDPERIPH_DRIVER -I"../src/device" -I"../src/RTOS2/RTX/Include" -I"../src/RTOS2/RTX/Config" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" -c -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

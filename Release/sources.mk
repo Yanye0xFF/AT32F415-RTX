@@ -38,7 +38,15 @@ src/RTOS2/RTX/Source/GCC \
 src/RTOS2/RTX/Source \
 src/RTOS2/Source \
 src/app \
+src/bsp/driver \
+src/components/finsh \
+src/components/ipc \
+src/components/libc/cplusplus \
+src/components/libc/cplusplus/os \
+src/components/libc/newlib \
+src/components/littlefs \
 src/components/rtt \
+src/components/spiflash \
 src/device \
 src/libcpu \
 src/rtthread \

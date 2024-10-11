@@ -26,6 +26,8 @@
 #define DBG_LVL    DBG_INFO
 #include <rtdbg.h>
 
+#define DFS_USING_POSIX    1
+
 #ifdef RT_USING_HEAP /* Memory routine */
 void *_malloc_r(struct _reent *ptr, size_t size)
 {
@@ -222,7 +224,7 @@ _ssize_t _read_r(struct _reent *ptr, int fd, void *buf, size_t nbytes)
             return 0;
         }
 #else
-        LOG_W("%s: %s", __func__, _WARNING_WITHOUT_STDIO);
+        // LOG_W("%s: %s", __func__, _WARNING_WITHOUT_STDIO);
         ptr->_errno = ENOTSUP;
         return -1;
 #endif /* RT_USING_POSIX_STDIO */
@@ -306,12 +308,9 @@ _ssize_t _write_r(struct _reent *ptr, int fd, const void *buf, size_t nbytes)
 #endif /* DFS_USING_POSIX */
 }
 
-extern int cplusplus_system_deinit(void);
-
 /* for exit() and abort() */
 __attribute__ ((noreturn)) void _exit (int status)
 {
-    cplusplus_system_deinit();
     __rt_libc_exit(status);
     while(1);
 }
